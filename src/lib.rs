@@ -1,14 +1,30 @@
 #![feature(float_to_from_bytes)]
 extern crate byteorder;
 
-use byteorder::{NativeEndian, ReadBytesExt};
-use std::convert::TryInto;
 use std::fs::File;
-use std::io::{self, BufReader, SeekFrom};
 use std::io::prelude::*;
-
+use std::io::{self, BufReader, SeekFrom};
 
 const BUFFER_SIZE: usize = 3000000;
+
+pub trait From4Bytes {
+    type Item;
+    fn from_ne_bytes(array: [u8; 4]) -> Self::Item;
+}
+
+impl From4Bytes for u32 {
+    type Item = u32;
+    fn from_ne_bytes(array: [u8; 4]) -> Self::Item {
+        Self::Item::from_ne_bytes(array)
+    }
+}
+
+impl From4Bytes for f32 {
+    type Item = f32;
+    fn from_ne_bytes(array: [u8; 4]) -> Self::Item {
+        Self::Item::from_ne_bytes(array)
+    }
+}
 
 pub struct HancockDataRow {
     pub zen: f32,
@@ -21,7 +37,6 @@ pub struct HancockDataRow {
     pub r: Vec<f32>,
     pub refl: Vec<f32>,
 }
-
 
 pub struct HancockReader {
     reader: BufReader<File>,
@@ -64,16 +79,15 @@ impl HancockReader {
         Ok(())
     }
 
-    fn read_f32(&mut self) -> f32 {
+    fn read_4bytes<T>(&mut self) -> T::Item
+    where
+        T: From4Bytes,
+    {
         let mut buff_slice: [u8; 4] = Default::default();
         self.reader
             .read(&mut buff_slice)
             .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-        f32::from_ne_bytes(buff_slice)
-    }
-
-    fn read_u32(&mut self) -> u32 {
-        self.reader.read_u32::<NativeEndian>().unwrap()
+        T::from_ne_bytes(buff_slice)
     }
 
     fn read_u8(&mut self) -> u8 {
@@ -94,25 +108,28 @@ impl Iterator for HancockReader {
             return None;
         }
         let mut result = HancockDataRow {
-            zen: self.read_f32(),
-            az: self.read_f32(),
-            x: self.read_f32(),
-            y: self.read_f32(),
-            z: self.read_f32(),
-            shot_n: self.read_u32(),
+            zen: self.read_4bytes::<f32>(),
+            az: self.read_4bytes::<f32>(),
+            x: self.read_4bytes::<f32>(),
+            y: self.read_4bytes::<f32>(),
+            z: self.read_4bytes::<f32>(),
+            shot_n: self.read_4bytes::<u32>(),
             n_hits: self.read_u8(),
             r: vec![],
             refl: vec![],
         };
 
         for _ in 0..result.n_hits as usize {
-            result.r.push(self.read_f32());
-            result.refl.push(self.read_f32());
+            result.r.push(self.read_4bytes::<f32>());
+            result.refl.push(self.read_4bytes::<f32>());
         }
 
         Some(result)
     }
 }
+
+/*
+use std::convert::TryInto;
 
 pub struct HancockReaderInMemory {
     buffer: Vec<u8>,
@@ -217,4 +234,4 @@ impl Iterator for HancockReaderInMemory {
         self.current_beam += 1;
         Some(result)
     }
-}
+} */
