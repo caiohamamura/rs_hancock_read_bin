@@ -1,20 +1,15 @@
 #![feature(float_to_from_bytes)]
-extern crate indicatif;
-extern crate threadpool;
+extern crate byteorder;
 
-use threadpool::ThreadPool;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use byteorder::{NativeEndian, ReadBytesExt};
 use std::convert::TryInto;
 use std::fs::File;
-use std::io::BufReader;
-use std::io;
+use std::io::{self, BufReader, SeekFrom};
 use std::io::prelude::*;
-use std::io::SeekFrom;
-use std::thread;
-use std::sync::mpsc::sync_channel;
 
 
-#[allow(dead_code)]
+const BUFFER_SIZE: usize = 3000000;
+
 pub struct HancockDataRow {
     pub zen: f32,
     pub az: f32,
@@ -27,6 +22,7 @@ pub struct HancockDataRow {
     pub refl: Vec<f32>,
 }
 
+
 pub struct HancockReader {
     reader: BufReader<File>,
     pub n_beams: usize,
@@ -37,10 +33,10 @@ pub struct HancockReader {
 }
 
 impl HancockReader {
-    pub fn new(path: String) -> Result<HancockReader, std::io::Error> {
+    pub fn new(path: String) -> Result<HancockReader, io::Error> {
         let file = File::open(path)?;
         let mut result = HancockReader {
-            reader: BufReader::with_capacity(3000000, file),
+            reader: BufReader::with_capacity(BUFFER_SIZE, file),
             n_beams: 0,
             current_beam: 0,
             xoff: 0.0,
@@ -52,7 +48,7 @@ impl HancockReader {
         Ok(result)
     }
 
-    fn read_metadata(&mut self) -> Result<(), std::io::Error> {
+    fn read_metadata(&mut self) -> Result<(), io::Error> {
         self.reader.seek(SeekFrom::End(-(4 + 3 * 8)))?;
         let mut buffer8 = [0u8; 8];
         let mut buffer = [0u8; 4];
@@ -77,11 +73,7 @@ impl HancockReader {
     }
 
     fn read_u32(&mut self) -> u32 {
-        let mut buff_slice: [u8; 4] = Default::default();
-        self.reader
-            .read(&mut buff_slice)
-            .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-        u32::from_ne_bytes(buff_slice)
+        self.reader.read_u32::<NativeEndian>().unwrap()
     }
 
     fn read_u8(&mut self) -> u8 {
@@ -134,7 +126,7 @@ pub struct HancockReaderInMemory {
 }
 
 impl HancockReaderInMemory {
-    pub fn new(path: String) -> Result<HancockReaderInMemory, std::io::Error> {
+    pub fn new(path: String) -> Result<HancockReaderInMemory, io::Error> {
         let path2 = path.clone();
         let mut f = File::open(path2)?;
 
@@ -152,13 +144,13 @@ impl HancockReaderInMemory {
         Ok(result)
     }
 
-    pub fn load(&mut self) -> Result<(), std::io::Error> {
+    pub fn load(&mut self) -> Result<(), io::Error> {
         let mut f = File::open(self.path.clone())?;
         f.read_to_end(&mut self.buffer)?;
         Ok(())
     }
 
-    pub fn read_metadata(&mut self, file: &mut File) -> Result<(), std::io::Error> {
+    pub fn read_metadata(&mut self, file: &mut File) -> Result<(), io::Error> {
         file.seek(SeekFrom::End(-(4 + 3 * 8)))?;
         let mut buffer8 = [0u8; 8];
         let mut buffer = [0u8; 4];
@@ -225,59 +217,4 @@ impl Iterator for HancockReaderInMemory {
         self.current_beam += 1;
         Some(result)
     }
-}
-
-
-use std::path::PathBuf;
-use structopt::StructOpt;
-
-/// A basic example
-#[derive(StructOpt, Debug)]
-#[structopt(name = "basic")]
-struct Opt {
-    // A flag, true if used in the command line. Note doc comment will
-    // be used for the help message of the flag. The name of the
-    // argument will be, by default, based on the name of the field.
-    /// Activate debug mode
-    /// Files to process
-    #[structopt(name = "FILE", parse(from_os_str))]
-    files: Vec<PathBuf>,
-}
-
-fn main() -> io::Result<()> {
-    let pool = ThreadPool::new(2);
-    let opt = Opt::from_args();
-    let m = MultiProgress::new();
-    let sty = ProgressStyle::default_bar()
-        .template("{msg}\n{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")
-        .progress_chars("#>-");
-
-    opt.files.into_iter().for_each(|file_path| {
-        let file_path_str = file_path
-            .into_os_string()
-            .into_string()
-            .expect("Error converting the file string");
-
-        let mut f = HancockReader::new(file_path_str.clone())
-            .unwrap_or_else(|err| panic!("Cannot open file: {}!", err));
-
-        let pb = m.add(ProgressBar::new((f.n_beams) as u64));
-        pb.set_style(sty.clone());
-        let _ = pool.execute(move || {
-            pb.set_message(&format!("Processing file: {}", file_path_str.clone()));
-            pb.set_position(0);
-            while let Some(data) = f.next() {
-                if f.current_beam % 10000 == 0 {
-                    pb.set_position((f.current_beam + 1) as u64);
-                }
-            }
-            pb.set_position(f.n_beams as u64);
-            pb.finish_with_message("done!");
-        });
-    });
-
-    m.join_and_clear().unwrap();
-
-    // and more! See the other methods for more details.
-    Ok(())
 }
