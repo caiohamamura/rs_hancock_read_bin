@@ -36,7 +36,7 @@ pub struct HancockReader {
 impl HancockReader {
     pub fn new(path: String) -> Result<HancockReader, io::Error> {
         let file = File::open(path)?;
-        let mut result = HancockReader {
+        let result = HancockReader {
             reader: BufReader::with_capacity(BUFFER_SIZE, file),
             n_beams: 0,
             current_beam: 0,
@@ -95,7 +95,7 @@ impl Iterator for HancockReader {
             return None;
         }
 
-        let mut result = HancockDataRow {
+        let result = HancockDataRow {
             zen: self.read_f32(),
             az: self.read_f32(),
             x: self.read_f32(),
@@ -208,13 +208,13 @@ impl Iterator for HancockReaderInMemory {
             z: self.read_f32(),
             shot_n: self.read_u32(),
             n_hits: self.read_u8(),
-            r: vec![],
-            refl: vec![],
+            r: RefCell::new(vec![]),
+            refl: RefCell::new(vec![]),
         };
 
         for _ in 0..result.n_hits as usize {
-            result.r.push(self.read_f32());
-            result.refl.push(self.read_f32());
+            result.r.borrow_mut().push(self.read_f32());
+            result.refl.borrow_mut().push(self.read_f32());
         }
         self.current_beam += 1;
         Some(result)
