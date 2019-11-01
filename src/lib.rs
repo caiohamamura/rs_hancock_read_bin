@@ -37,6 +37,7 @@ impl FromBytes for u8 {
     }
 }
 
+#[derive(Debug)]
 pub struct HancockDataRow {
     pub zen: f32,
     pub az: f32,
