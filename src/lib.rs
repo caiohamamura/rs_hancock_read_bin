@@ -1,28 +1,39 @@
 #![feature(float_to_from_bytes)]
 extern crate byteorder;
 
+use std::convert::TryInto;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{self, BufReader, SeekFrom};
 
 const BUFFER_SIZE: usize = 3000000;
 
-pub trait From4Bytes {
+pub trait FromBytes {
     type Item;
-    fn from_ne_bytes(array: [u8; 4]) -> Self::Item;
+    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item;
 }
 
-impl From4Bytes for u32 {
+impl FromBytes for u32 {
     type Item = u32;
-    fn from_ne_bytes(array: [u8; 4]) -> Self::Item {
-        Self::Item::from_ne_bytes(array)
+    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item {
+        let arr: [u8; 4] = vec.as_slice().try_into().unwrap();
+        Self::Item::from_ne_bytes(arr)
     }
 }
 
-impl From4Bytes for f32 {
+impl FromBytes for f32 {
     type Item = f32;
-    fn from_ne_bytes(array: [u8; 4]) -> Self::Item {
-        Self::Item::from_ne_bytes(array)
+    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item {
+        let arr: [u8; 4] = vec.as_slice().try_into().unwrap();
+        Self::Item::from_ne_bytes(arr)
+    }
+}
+
+impl FromBytes for u8 {
+    type Item = u8;
+    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item {
+        let arr: [u8; 1] = vec.as_slice().try_into().unwrap();
+        Self::Item::from_ne_bytes(arr)
     }
 }
 
@@ -79,24 +90,17 @@ impl HancockReader {
         Ok(())
     }
 
-    fn read_4bytes<T>(&mut self) -> T::Item
+    fn read_bytes<T>(&mut self) -> T::Item
     where
-        T: From4Bytes,
+        T: FromBytes,
     {
-        let mut buff_slice: [u8; 4] = Default::default();
+        let mut buff_slice = vec![0u8; std::mem::size_of::<T>()];
         self.reader
             .read(&mut buff_slice)
             .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
         T::from_ne_bytes(buff_slice)
     }
 
-    fn read_u8(&mut self) -> u8 {
-        let mut buff_slice: [u8; 1] = Default::default();
-        self.reader
-            .read(&mut buff_slice)
-            .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-        u8::from_ne_bytes(buff_slice)
-    }
 }
 
 impl Iterator for HancockReader {
@@ -108,20 +112,20 @@ impl Iterator for HancockReader {
             return None;
         }
         let mut result = HancockDataRow {
-            zen: self.read_4bytes::<f32>(),
-            az: self.read_4bytes::<f32>(),
-            x: self.read_4bytes::<f32>(),
-            y: self.read_4bytes::<f32>(),
-            z: self.read_4bytes::<f32>(),
-            shot_n: self.read_4bytes::<u32>(),
-            n_hits: self.read_u8(),
+            zen: self.read_bytes::<f32>(),
+            az: self.read_bytes::<f32>(),
+            x: self.read_bytes::<f32>(),
+            y: self.read_bytes::<f32>(),
+            z: self.read_bytes::<f32>(),
+            shot_n: self.read_bytes::<u32>(),
+            n_hits: self.read_bytes::<u8>(),
             r: vec![],
             refl: vec![],
         };
 
         for _ in 0..result.n_hits as usize {
-            result.r.push(self.read_4bytes::<f32>());
-            result.refl.push(self.read_4bytes::<f32>());
+            result.r.push(self.read_bytes::<f32>());
+            result.refl.push(self.read_bytes::<f32>());
         }
 
         Some(result)
@@ -129,7 +133,6 @@ impl Iterator for HancockReader {
 }
 
 /*
-use std::convert::TryInto;
 
 pub struct HancockReaderInMemory {
     buffer: Vec<u8>,
