@@ -11,6 +11,7 @@ use std::io::prelude::*;
 
 const BUFFER_SIZE: usize = 3000000;
 
+#[derive(Debug)]
 pub struct HancockDataRow {
     pub zen: f32,
     pub az: f32,
