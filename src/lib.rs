@@ -1,6 +1,7 @@
 #![feature(float_to_from_bytes)]
 extern crate byteorder;
 
+use std::cell::RefCell;
 use byteorder::{NativeEndian, ReadBytesExt};
 use std::convert::TryInto;
 use std::fs::File;
@@ -18,8 +19,8 @@ pub struct HancockDataRow {
     pub z: f32,
     pub shot_n: u32,
     pub n_hits: u8,
-    pub r: Vec<f32>,
-    pub refl: Vec<f32>,
+    pub r: RefCell<Vec<f32>>,
+    pub refl: RefCell<Vec<f32>>,
 }
 
 
@@ -93,6 +94,7 @@ impl Iterator for HancockReader {
         if self.current_beam == self.n_beams {
             return None;
         }
+
         let mut result = HancockDataRow {
             zen: self.read_f32(),
             az: self.read_f32(),
@@ -101,13 +103,13 @@ impl Iterator for HancockReader {
             z: self.read_f32(),
             shot_n: self.read_u32(),
             n_hits: self.read_u8(),
-            r: vec![],
-            refl: vec![],
+            r: RefCell::new(vec![]),
+            refl: RefCell::new(vec![]),
         };
 
         for _ in 0..result.n_hits as usize {
-            result.r.push(self.read_f32());
-            result.refl.push(self.read_f32());
+            result.r.borrow_mut().push(self.read_f32());
+            result.refl.borrow_mut().push(self.read_f32());
         }
 
         Some(result)
