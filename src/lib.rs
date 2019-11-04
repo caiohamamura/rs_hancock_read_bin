@@ -1,7 +1,7 @@
 #![feature(float_to_from_bytes)]
 extern crate byteorder;
 
-use std::cell:RefCell;
+use std::cell::RefCell;
 use std::convert::TryInto;
 use std::fs::File;
 use std::io::prelude::*;
