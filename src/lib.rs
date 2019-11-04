@@ -74,8 +74,32 @@ impl HancockReader {
 
     fn read_bytes<T>(&mut self) -> T
     where
-        T: FromBytes<T>,
+        T: FromBytes<T>
     {
+        match std::mem::size_of::<T>() {
+            1 => {
+                let mut buff_slice: [u8; 1] = [0; 1];
+                self.reader
+                    .read(&mut buff_slice)
+                    .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
+                return T::from_ne_bytes(buff_slice.to_vec());
+            }
+            4 => {
+                let mut buff_slice: [u8; 4] = [0; 4];
+                self.reader
+                    .read(&mut buff_slice)
+                    .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
+                return T::from_ne_bytes(buff_slice.to_vec());
+            }
+            8 => {
+                let mut buff_slice: [u8; 8] = [0; 8];
+                self.reader
+                    .read(&mut buff_slice)
+                    .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
+                return T::from_ne_bytes(buff_slice.to_vec());
+            }
+            _ => ()
+        }
         let mut buff_slice = vec![0u8; std::mem::size_of::<T>()];
         self.reader
             .read(&mut buff_slice)
