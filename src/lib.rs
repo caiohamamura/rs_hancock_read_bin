@@ -1,5 +1,6 @@
 #![feature(float_to_from_bytes)]
-use std::cell::RefCell;
+extern crate byteorder;
+
 use std::convert::TryInto;
 use std::fs::File;
 use std::io::prelude::*;
@@ -7,16 +8,34 @@ use std::io::{self, BufReader, SeekFrom};
 
 const BUFFER_SIZE: usize = 3000000;
 
-pub trait FromBytes<T> {
-    fn from_ne_bytes(vec: Vec<u8>) -> T;
+pub trait FromBytes {
+    type Item;
+    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item;
 }
 
-impl<T> FromBytes<T> for T {
-    fn from_ne_bytes(vec: Vec<u8>) -> T {
-        T::from_ne_bytes(vec.as_slice().try_into().unwrap())
+impl FromBytes for u32 {
+    type Item = u32;
+    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item {
+        let arr: [u8; 4] = vec.as_slice().try_into().unwrap();
+        Self::Item::from_ne_bytes(arr)
     }
 }
 
+impl FromBytes for f32 {
+    type Item = f32;
+    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item {
+        let arr: [u8; 4] = vec.as_slice().try_into().unwrap();
+        unsafe {std::mem::transmute::<[u8; 4], f32>(arr)}
+    }
+}
+
+impl FromBytes for u8 {
+    type Item = u8;
+    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item {
+        let arr: [u8; 1] = vec.as_slice().try_into().unwrap();
+        arr[0]
+    }
+}
 
 #[derive(Debug)]
 pub struct HancockDataRow {
@@ -27,8 +46,8 @@ pub struct HancockDataRow {
     pub z: f32,
     pub shot_n: u32,
     pub n_hits: u8,
-    pub r: RefCell<Vec<f32>>,
-    pub refl: RefCell<Vec<f32>>,
+    pub r: Vec<f32>,
+    pub refl: Vec<f32>,
 }
 
 pub struct HancockReader {
@@ -72,34 +91,10 @@ impl HancockReader {
         Ok(())
     }
 
-    fn read_bytes<T>(&mut self) -> T
+    fn read_bytes<T>(&mut self) -> T::Item
     where
-        T: FromBytes<T>
+        T: FromBytes,
     {
-        match std::mem::size_of::<T>() {
-            1 => {
-                let mut buff_slice: [u8; 1] = [0; 1];
-                self.reader
-                    .read(&mut buff_slice)
-                    .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-                return T::from_ne_bytes(buff_slice.to_vec());
-            }
-            4 => {
-                let mut buff_slice: [u8; 4] = [0; 4];
-                self.reader
-                    .read(&mut buff_slice)
-                    .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-                return T::from_ne_bytes(buff_slice.to_vec());
-            }
-            8 => {
-                let mut buff_slice: [u8; 8] = [0; 8];
-                self.reader
-                    .read(&mut buff_slice)
-                    .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-                return T::from_ne_bytes(buff_slice.to_vec());
-            }
-            _ => ()
-        }
         let mut buff_slice = vec![0u8; std::mem::size_of::<T>()];
         self.reader
             .read(&mut buff_slice)
@@ -125,13 +120,13 @@ impl Iterator for HancockReader {
             z: self.read_bytes::<f32>(),
             shot_n: self.read_bytes::<u32>(),
             n_hits: self.read_bytes::<u8>(),
-            r: RefCell::new(vec![]),
-            refl: RefCell::new(vec![]),
+            r: vec![],
+            refl: vec![],
         };
 
         for _ in 0..result.n_hits as usize {
-            result.r.borrow_mut().push(self.read_bytes::<f32>());
-            result.refl.borrow_mut().push(self.read_bytes::<f32>());
+            result.r.push(self.read_bytes::<f32>());
+            result.refl.push(self.read_bytes::<f32>());
         }
 
         Some(result)
