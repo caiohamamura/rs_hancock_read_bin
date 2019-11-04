@@ -92,15 +92,17 @@ impl HancockReader {
         Ok(())
     }
 
-    fn read_bytes<T>(&mut self) -> T::Item
-    where
-        T: FromBytes,
+    fn read_bytes<T>(&mut self) -> T
+    where 
+        T: Copy
     {
-        let mut buff_slice = vec![0u8; std::mem::size_of::<T>()];
+        let size_of_t = std::mem::size_of::<T>();
+        let mut buff_slice = vec![0u8; size_of_t];
         self.reader
             .read(&mut buff_slice)
             .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-        T::from_ne_bytes(buff_slice)
+        let ptr: *mut T = unsafe { std::mem::transmute(&buff_slice) };
+        unsafe { *ptr }
     }
 
 }
@@ -113,7 +115,7 @@ impl Iterator for HancockReader {
         if self.current_beam == self.n_beams {
             return None;
         }
-        let mut result = HancockDataRow {
+        let result = HancockDataRow {
             zen: self.read_bytes::<f32>(),
             az: self.read_bytes::<f32>(),
             x: self.read_bytes::<f32>(),
