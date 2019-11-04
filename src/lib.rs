@@ -1,6 +1,7 @@
 #![feature(float_to_from_bytes)]
 extern crate byteorder;
 
+use std::cell:RefCell;
 use std::convert::TryInto;
 use std::fs::File;
 use std::io::prelude::*;
@@ -46,8 +47,8 @@ pub struct HancockDataRow {
     pub z: f32,
     pub shot_n: u32,
     pub n_hits: u8,
-    pub r: Vec<f32>,
-    pub refl: Vec<f32>,
+    pub r: RefCell<Vec<f32>>,
+    pub refl: RefCell<Vec<f32>>,
 }
 
 pub struct HancockReader {
@@ -120,13 +121,13 @@ impl Iterator for HancockReader {
             z: self.read_bytes::<f32>(),
             shot_n: self.read_bytes::<u32>(),
             n_hits: self.read_bytes::<u8>(),
-            r: vec![],
-            refl: vec![],
+            r: RefCell::new(vec![]),
+            refl: RefCell::new(vec![]),
         };
 
         for _ in 0..result.n_hits as usize {
-            result.r.push(self.read_bytes::<f32>());
-            result.refl.push(self.read_bytes::<f32>());
+            result.r.borrow_mut().push(self.read_bytes::<f32>());
+            result.refl.borrow_mut().push(self.read_bytes::<f32>());
         }
 
         Some(result)
