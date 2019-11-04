@@ -9,35 +9,6 @@ use std::io::{self, BufReader, SeekFrom};
 
 const BUFFER_SIZE: usize = 3000000;
 
-pub trait FromBytes {
-    type Item;
-    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item;
-}
-
-impl FromBytes for u32 {
-    type Item = u32;
-    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item {
-        let arr: [u8; 4] = vec.as_slice().try_into().unwrap();
-        Self::Item::from_ne_bytes(arr)
-    }
-}
-
-impl FromBytes for f32 {
-    type Item = f32;
-    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item {
-        let arr: [u8; 4] = vec.as_slice().try_into().unwrap();
-        unsafe {std::mem::transmute::<[u8; 4], f32>(arr)}
-    }
-}
-
-impl FromBytes for u8 {
-    type Item = u8;
-    fn from_ne_bytes(vec: Vec<u8>) -> Self::Item {
-        let arr: [u8; 1] = vec.as_slice().try_into().unwrap();
-        arr[0]
-    }
-}
-
 #[derive(Debug)]
 pub struct HancockDataRow {
     pub zen: f32,
@@ -101,8 +72,10 @@ impl HancockReader {
         self.reader
             .read(&mut buff_slice)
             .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-        let ptr: *mut T = unsafe { std::mem::transmute(&buff_slice[0]) };
-        unsafe { *ptr }
+        unsafe { 
+            let raw_ptr: *mut T = std::mem::transmute(&buff_slice[0]);
+            *raw_ptr
+        }
     }
 
 }
