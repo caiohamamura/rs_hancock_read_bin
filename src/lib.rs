@@ -101,7 +101,7 @@ impl HancockReader {
         self.reader
             .read(&mut buff_slice)
             .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-        let ptr: *mut T = unsafe { std::mem::transmute(&buff_slice) };
+        let ptr: *mut T = unsafe { std::mem::transmute(&buff_slice[0]) };
         unsafe { *ptr }
     }
 
