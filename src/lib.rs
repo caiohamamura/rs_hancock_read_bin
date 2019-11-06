@@ -1,9 +1,16 @@
+extern crate buf_redux;
+
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::{self, BufReader, SeekFrom};
+use std::io::{self, SeekFrom};
+use buf_redux::{BufReader, Buffer};
+use std::io::{BufRead, Cursor};
+
 
 const BUFFER_SIZE: usize = 3000000;
+const BEAM_MAX_SIZE: usize = 25 + (20*8); 
+
 
 #[derive(Debug)]
 pub struct HancockDataRow {
@@ -20,6 +27,7 @@ pub struct HancockDataRow {
 
 pub struct HancockReader {
     reader: BufReader<File>,
+    nbeams_fit: usize,
     pub n_beams: usize,
     pub current_beam: usize,
     pub xoff: f64,
@@ -37,8 +45,8 @@ impl HancockReader {
             xoff: 0.0,
             yoff: 0.0,
             zoff: 0.0,
+            nbeams_fit: BUFFER_SIZE/BEAM_MAX_SIZE,
         };
-
         result.read_metadata()?;
         Ok(result)
     }
@@ -52,6 +60,7 @@ impl HancockReader {
             xoff: 0.0,
             yoff: 0.0,
             zoff: 0.0,
+            nbeams_fit: BUFFER_SIZE/BEAM_MAX_SIZE,
         };
 
         result.read_metadata()?;
@@ -109,6 +118,13 @@ impl Iterator for HancockReader {
         for _ in 0..result.n_hits as usize {
             result.r.borrow_mut().push(self.read_bytes::<f32>());
             result.refl.borrow_mut().push(self.read_bytes::<f32>());
+        }
+
+        self.current_beam += 1;
+        if self.current_beam == self.nbeams_fit {
+            self.current_beam = 0;
+            self.reader.fill_buf().unwrap();
+
         }
 
         Some(result)
