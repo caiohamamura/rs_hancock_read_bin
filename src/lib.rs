@@ -43,6 +43,21 @@ impl HancockReader {
         Ok(result)
     }
 
+    pub fn new_with_buffer_capacity(path: String, buffer_size: usize) -> Result<HancockReader, io::Error> {
+        let file = File::open(path)?;
+        let mut result = HancockReader {
+            reader: BufReader::with_capacity(buffer_size, file),
+            n_beams: 0,
+            current_beam: 0,
+            xoff: 0.0,
+            yoff: 0.0,
+            zoff: 0.0,
+        };
+
+        result.read_metadata()?;
+        Ok(result)
+    }
+
     fn read_metadata(&mut self) -> Result<(), io::Error> {
         self.reader.seek(SeekFrom::End(-(4 + 3 * 8)))?;
         
