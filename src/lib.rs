@@ -1,8 +1,4 @@
-#![feature(float_to_from_bytes)]
-extern crate byteorder;
-
 use std::cell::RefCell;
-use std::convert::TryInto;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{self, BufReader, SeekFrom};
@@ -49,16 +45,11 @@ impl HancockReader {
 
     fn read_metadata(&mut self) -> Result<(), io::Error> {
         self.reader.seek(SeekFrom::End(-(4 + 3 * 8)))?;
-        let mut buffer8 = [0u8; 8];
-        let mut buffer = [0u8; 4];
-        self.reader.read(&mut buffer8)?;
-        self.xoff = f64::from_ne_bytes(buffer8);
-        self.reader.read(&mut buffer8)?;
-        self.yoff = f64::from_ne_bytes(buffer8);
-        self.reader.read(&mut buffer8)?;
-        self.zoff = f64::from_ne_bytes(buffer8);
-        self.reader.read(&mut buffer)?;
-        self.n_beams = u32::from_ne_bytes(buffer) as usize;
+        
+        self.xoff = self.read_bytes::<f64>();
+        self.yoff = self.read_bytes::<f64>();
+        self.zoff = self.read_bytes::<f64>();
+        self.n_beams = self.read_bytes::<u32>() as usize;
         self.reader.seek(SeekFrom::Start(0))?;
         Ok(())
     }
