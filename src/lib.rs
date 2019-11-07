@@ -1,15 +1,11 @@
-extern crate buf_redux;
-
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::{self, SeekFrom};
-use buf_redux::{BufReader, Buffer};
+use std::io::{self, BufReader, SeekFrom};
 use std::io::{BufRead, Cursor};
 
 
 const BUFFER_SIZE: usize = 3000000;
-const BEAM_MAX_SIZE: usize = 25 + (20*8); 
 
 
 #[derive(Debug)]
@@ -27,7 +23,6 @@ pub struct HancockDataRow {
 
 pub struct HancockReader {
     reader: BufReader<File>,
-    nbeams_fit: usize,
     pub n_beams: usize,
     pub current_beam: usize,
     pub xoff: f64,
@@ -45,9 +40,9 @@ impl HancockReader {
             xoff: 0.0,
             yoff: 0.0,
             zoff: 0.0,
-            nbeams_fit: BUFFER_SIZE/BEAM_MAX_SIZE,
         };
         result.read_metadata()?;
+        result.reader.fill_buf().unwrap();
         Ok(result)
     }
 
@@ -60,10 +55,9 @@ impl HancockReader {
             xoff: 0.0,
             yoff: 0.0,
             zoff: 0.0,
-            nbeams_fit: BUFFER_SIZE/BEAM_MAX_SIZE,
         };
-
         result.read_metadata()?;
+        result.reader.fill_buf().unwrap();
         Ok(result)
     }
 
@@ -84,9 +78,19 @@ impl HancockReader {
     {
         let size_of_t = std::mem::size_of::<T>();
         let mut buff_slice = vec![0u8; size_of_t];
-        self.reader
+        loop {
+            let bytes_read = self.reader
             .read(&mut buff_slice)
             .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
+            
+            if bytes_read == size_of_t {
+                break;
+            }
+
+            self.reader.seek(SeekFrom::Current(-(bytes_read as i64))).unwrap();
+            self.reader.fill_buf().unwrap();
+        }
+
         unsafe { 
             let raw_ptr: *mut T = std::mem::transmute(&buff_slice[0]);
             *raw_ptr
@@ -118,13 +122,6 @@ impl Iterator for HancockReader {
         for _ in 0..result.n_hits as usize {
             result.r.borrow_mut().push(self.read_bytes::<f32>());
             result.refl.borrow_mut().push(self.read_bytes::<f32>());
-        }
-
-        self.current_beam += 1;
-        if self.current_beam == self.nbeams_fit {
-            self.current_beam = 0;
-            self.reader.fill_buf().unwrap();
-
         }
 
         Some(result)
@@ -237,3 +234,21 @@ impl Iterator for HancockReaderInMemory {
         Some(result)
     }
 } */
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run() {
+        let file_path = String::from("E:/Documentos/Doutorado/Edinburgh/P036_entry2_2017_001_170925_095748 - Copia.bin");
+        let mut reader: HancockReader = HancockReader::new_with_buffer_capacity(file_path, 3000000).expect("Failed to open reader.");
+        println!("Number of beams: {}", reader.n_beams); 
+        while let Some(data) = reader.next() {
+            print!("\r{:.2} Az: {:.2}", (100.0 * data.shot_n as f64/reader.n_beams as f64), data.az);
+            if data.shot_n > reader.n_beams as u32 {
+                println!("OMG something very wrong, shot_n: {}\n\n", data.shot_n);
+            }
+        };
+    }
+}
