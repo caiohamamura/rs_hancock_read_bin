@@ -1,9 +1,12 @@
 [package]
-name = "hancock_read_bin"
+name = "tls_read_hancock_bin"
 version = "0.1.0"
 authors = ["Caio Hamamura <caiohamamura@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+license = "MIT"
+description = "Reader for the Hancock terrestrial LiDAR binary polar format, see https://bitbucket.org/StevenHancock/libclidar."
+readme = "README.md"
+homepage = "https://github.com/caiohamamura/rs_hancock_read_bin"
+repository = "https://github.com/caiohamamura/rs_hancock_read_bin"
+keywords = ["TLS", "LiDAR"]
+categories = ["Science"]

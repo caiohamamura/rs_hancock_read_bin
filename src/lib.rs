@@ -2,11 +2,9 @@ use std::cell::RefCell;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{self, BufReader, SeekFrom};
-use std::io::{BufRead, Cursor};
-
+use std::io::{BufRead};
 
 const BUFFER_SIZE: usize = 3000000;
-
 
 #[derive(Debug)]
 pub struct HancockDataRow {
@@ -46,7 +44,10 @@ impl HancockReader {
         Ok(result)
     }
 
-    pub fn new_with_buffer_capacity(path: String, buffer_size: usize) -> Result<HancockReader, io::Error> {
+    pub fn new_with_buffer_capacity(
+        path: String,
+        buffer_size: usize,
+    ) -> Result<HancockReader, io::Error> {
         let file = File::open(path)?;
         let mut result = HancockReader {
             reader: BufReader::with_capacity(buffer_size, file),
@@ -63,7 +64,7 @@ impl HancockReader {
 
     fn read_metadata(&mut self) -> Result<(), io::Error> {
         self.reader.seek(SeekFrom::End(-(4 + 3 * 8)))?;
-        
+
         self.xoff = self.read_bytes::<f64>();
         self.yoff = self.read_bytes::<f64>();
         self.zoff = self.read_bytes::<f64>();
@@ -73,30 +74,32 @@ impl HancockReader {
     }
 
     fn read_bytes<T>(&mut self) -> T
-    where 
-        T: Copy
+    where
+        T: Copy,
     {
         let size_of_t = std::mem::size_of::<T>();
         let mut buff_slice = vec![0u8; size_of_t];
         loop {
-            let bytes_read = self.reader
-            .read(&mut buff_slice)
-            .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
-            
+            let bytes_read = self
+                .reader
+                .read(&mut buff_slice)
+                .unwrap_or_else(|err| panic!("Can't read file anymore: {}", err));
+
             if bytes_read == size_of_t {
                 break;
             }
 
-            self.reader.seek(SeekFrom::Current(-(bytes_read as i64))).unwrap();
+            self.reader
+                .seek(SeekFrom::Current(-(bytes_read as i64)))
+                .unwrap();
             self.reader.fill_buf().unwrap();
         }
 
-        unsafe { 
+        unsafe {
             let raw_ptr: *mut T = std::mem::transmute(&buff_slice[0]);
             *raw_ptr
         }
     }
-
 }
 
 impl Iterator for HancockReader {
@@ -128,127 +131,27 @@ impl Iterator for HancockReader {
     }
 }
 
-/*
-
-pub struct HancockReaderInMemory {
-    buffer: Vec<u8>,
-    buffer_pos: usize,
-    path: String,
-    pub n_beams: usize,
-    pub current_beam: usize,
-    pub xoff: f64,
-    pub yoff: f64,
-    pub zoff: f64,
-}
-
-impl HancockReaderInMemory {
-    pub fn new(path: String) -> Result<HancockReaderInMemory, io::Error> {
-        let path2 = path.clone();
-        let mut f = File::open(path2)?;
-
-        let mut result = HancockReaderInMemory {
-            buffer: vec![],
-            n_beams: 0,
-            current_beam: 0,
-            buffer_pos: 0,
-            xoff: 0.0,
-            yoff: 0.0,
-            zoff: 0.0,
-            path: path.clone(),
-        };
-        result.read_metadata(&mut f)?;
-        Ok(result)
-    }
-
-    pub fn load(&mut self) -> Result<(), io::Error> {
-        let mut f = File::open(self.path.clone())?;
-        f.read_to_end(&mut self.buffer)?;
-        Ok(())
-    }
-
-    pub fn read_metadata(&mut self, file: &mut File) -> Result<(), io::Error> {
-        file.seek(SeekFrom::End(-(4 + 3 * 8)))?;
-        let mut buffer8 = [0u8; 8];
-        let mut buffer = [0u8; 4];
-        file.read(&mut buffer8)?;
-        self.xoff = f64::from_ne_bytes(buffer8);
-        file.read(&mut buffer8)?;
-        self.yoff = f64::from_ne_bytes(buffer8);
-        file.read(&mut buffer8)?;
-        self.zoff = f64::from_ne_bytes(buffer8);
-        file.read(&mut buffer)?;
-        self.n_beams = u32::from_ne_bytes(buffer) as usize;
-        file.seek(SeekFrom::Start(0))?;
-        Ok(())
-    }
-
-    fn read_f32(&mut self) -> f32 {
-        let buff_slice: [u8; 4] = self.buffer[self.buffer_pos..self.buffer_pos + 4]
-            .try_into()
-            .expect("Slice of wrong size");
-        self.buffer_pos += 4;
-        f32::from_ne_bytes(buff_slice)
-    }
-
-    fn read_u32(&mut self) -> u32 {
-        let buff_slice: [u8; 4] = self.buffer[self.buffer_pos..self.buffer_pos + 4]
-            .try_into()
-            .expect("Slice of wrong size");
-        self.buffer_pos += 4;
-        u32::from_ne_bytes(buff_slice)
-    }
-
-    fn read_u8(&mut self) -> u8 {
-        let buff_slice: [u8; 1] = self.buffer[self.buffer_pos..self.buffer_pos + 1]
-            .try_into()
-            .expect("Slice of wrong size");
-        self.buffer_pos += 1;
-        u8::from_ne_bytes(buff_slice)
-    }
-}
-
-impl Iterator for HancockReaderInMemory {
-    type Item = HancockDataRow;
-
-    fn next(&mut self) -> Option<HancockDataRow> {
-        if self.current_beam == self.n_beams {
-            return None;
-        }
-        let mut result = HancockDataRow {
-            zen: self.read_f32(),
-            az: self.read_f32(),
-            x: self.read_f32(),
-            y: self.read_f32(),
-            z: self.read_f32(),
-            shot_n: self.read_u32(),
-            n_hits: self.read_u8(),
-            r: vec![],
-            refl: vec![],
-        };
-
-        for _ in 0..result.n_hits as usize {
-            result.r.push(self.read_f32());
-            result.refl.push(self.read_f32());
-        }
-        self.current_beam += 1;
-        Some(result)
-    }
-} */
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn run() {
-        let file_path = String::from("E:/Documentos/Doutorado/Edinburgh/P036_entry2_2017_001_170925_095748 - Copia.bin");
-        let mut reader: HancockReader = HancockReader::new_with_buffer_capacity(file_path, 3000000).expect("Failed to open reader.");
-        println!("Number of beams: {}", reader.n_beams); 
+        let file_path = String::from(
+            "E:/Documentos/Doutorado/Edinburgh/P036_entry2_2017_001_170925_095748 - Copia.bin",
+        );
+        let mut reader: HancockReader = HancockReader::new_with_buffer_capacity(file_path, 3000000)
+            .expect("Failed to open reader.");
+        println!("Number of beams: {}", reader.n_beams);
         while let Some(data) = reader.next() {
-            print!("\r{:.2} Az: {:.2}", (100.0 * data.shot_n as f64/reader.n_beams as f64), data.az);
+            print!(
+                "\r{:.2} Az: {:.2}",
+                (100.0 * data.shot_n as f64 / reader.n_beams as f64),
+                data.az
+            );
             if data.shot_n > reader.n_beams as u32 {
                 println!("OMG something very wrong, shot_n: {}\n\n", data.shot_n);
             }
-        };
+        }
     }
 }
