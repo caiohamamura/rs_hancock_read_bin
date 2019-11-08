@@ -7,7 +7,7 @@ Reader for the Hancock terrestrial LiDAR binary polar format, see https://bitbuc
 `Cargo.toml`:
 ```toml
 [dependencies]
-tls_read_hancock_bin = "0.1"
+tls_read_hancock_bin = "0.1.1"
 ```
 
 And in your rust code:
