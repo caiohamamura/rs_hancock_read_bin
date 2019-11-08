@@ -131,27 +131,26 @@ impl Iterator for HancockReader {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn run() {
-        let file_path = String::from(
-            "E:/Documentos/Doutorado/Edinburgh/P036_entry2_2017_001_170925_095748 - Copia.bin",
-        );
-        let mut reader: HancockReader = HancockReader::new_with_buffer_capacity(file_path, 3000000)
-            .expect("Failed to open reader.");
-        println!("Number of beams: {}", reader.n_beams);
-        while let Some(data) = reader.next() {
-            print!(
-                "\r{:.2} Az: {:.2}",
-                (100.0 * data.shot_n as f64 / reader.n_beams as f64),
-                data.az
-            );
-            if data.shot_n > reader.n_beams as u32 {
-                println!("OMG something very wrong, shot_n: {}\n\n", data.shot_n);
-            }
-        }
-    }
-}
+//     #[test]
+//     fn run() {
+//         let file_path = String::from(
+//         );
+//         let mut reader: HancockReader = HancockReader::new_with_buffer_capacity(file_path, 3000000)
+//             .expect("Failed to open reader.");
+//         println!("Number of beams: {}", reader.n_beams);
+//         while let Some(data) = reader.next() {
+//             print!(
+//                 "\r{:.2} Az: {:.2}",
+//                 (100.0 * data.shot_n as f64 / reader.n_beams as f64),
+//                 data.az
+//             );
+//             if data.shot_n > reader.n_beams as u32 {
+//                 println!("OMG something very wrong, shot_n: {}\n\n", data.shot_n);
+//             }
+//         }
+//     }
+// }
