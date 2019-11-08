@@ -9,4 +9,4 @@ readme = "README.md"
 homepage = "https://github.com/caiohamamura/rs_hancock_read_bin"
 repository = "https://github.com/caiohamamura/rs_hancock_read_bin"
 keywords = ["TLS", "LiDAR"]
-categories = ["Science"]
+categories = ["science"]
