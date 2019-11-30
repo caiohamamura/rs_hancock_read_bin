@@ -12,8 +12,8 @@ tls_read_hancock_bin = "0.1.1"
 
 And in your rust code:
 ```rust
-extern crate hancock_read_bin;
-use hancock_read_bin::HancockReader;
+extern crate tls_read_hancock_bin;
+use tls_read_hancock_bin::HancockReader;
 
 // [...]
 
